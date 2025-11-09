@@ -45,6 +45,16 @@ export interface User {
   profileId: string;
 }
 
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'warning' | 'info' | 'success';
+  read: boolean;
+  createdAt: string;
+}
+
 // Initialize default data
 const initializeData = () => {
   if (!localStorage.getItem('users')) {
@@ -91,6 +101,10 @@ const initializeData = () => {
   if (!localStorage.getItem('attendance')) {
     localStorage.setItem('attendance', JSON.stringify([]));
   }
+
+  if (!localStorage.getItem('notifications')) {
+    localStorage.setItem('notifications', JSON.stringify([]));
+  }
 };
 
 // Generic storage functions
@@ -110,6 +124,10 @@ export const getStaff = (): Staff[] => getFromStorage<Staff>('staff');
 export const getStudents = (): Student[] => getFromStorage<Student>('students');
 export const getAttendance = (): AttendanceRecord[] => getFromStorage<AttendanceRecord>('attendance');
 export const getUsers = (): User[] => getFromStorage<User>('users');
+export const getNotifications = (userId?: string): Notification[] => {
+  const notifications = getFromStorage<Notification>('notifications');
+  return userId ? notifications.filter(n => n.userId === userId) : notifications;
+};
 
 // Initialize on import
 initializeData();
@@ -139,4 +157,75 @@ export const login = (username: string, password: string): User | null => {
 
 export const logout = (): void => {
   setCurrentUser(null);
+};
+
+// Notification functions
+export const createNotification = (notification: Omit<Notification, 'id' | 'createdAt'>): void => {
+  const notifications = getNotifications();
+  const newNotification: Notification = {
+    ...notification,
+    id: Date.now().toString(),
+    createdAt: new Date().toISOString(),
+  };
+  saveToStorage('notifications', [...notifications, newNotification]);
+};
+
+export const markNotificationAsRead = (notificationId: string): void => {
+  const notifications = getNotifications();
+  const updated = notifications.map(n => 
+    n.id === notificationId ? { ...n, read: true } : n
+  );
+  saveToStorage('notifications', updated);
+};
+
+export const markAllNotificationsAsRead = (userId: string): void => {
+  const notifications = getNotifications();
+  const updated = notifications.map(n => 
+    n.userId === userId ? { ...n, read: true } : n
+  );
+  saveToStorage('notifications', updated);
+};
+
+export const deleteNotification = (notificationId: string): void => {
+  const notifications = getNotifications();
+  const updated = notifications.filter(n => n.id !== notificationId);
+  saveToStorage('notifications', updated);
+};
+
+// Check and create attendance notification
+export const checkAttendanceAndNotify = (studentId: string): void => {
+  const attendance = getAttendance();
+  const studentAttendance = attendance.filter(a => a.studentId === studentId);
+  
+  if (studentAttendance.length === 0) return;
+
+  const presentCount = studentAttendance.filter(a => a.status === 'present').length;
+  const percentage = (presentCount / studentAttendance.length) * 100;
+
+  if (percentage < 75) {
+    const students = getStudents();
+    const student = students.find(s => s.id === studentId);
+    const users = getUsers();
+    const user = users.find(u => u.profileId === studentId && u.role === 'student');
+
+    if (student && user) {
+      // Check if there's already a recent notification (within last 24 hours)
+      const notifications = getNotifications(user.id);
+      const recentNotification = notifications.find(n => 
+        n.type === 'warning' && 
+        n.title === 'Low Attendance Alert' &&
+        new Date(n.createdAt).getTime() > Date.now() - 24 * 60 * 60 * 1000
+      );
+
+      if (!recentNotification) {
+        createNotification({
+          userId: user.id,
+          title: 'Low Attendance Alert',
+          message: `Your attendance has dropped to ${Math.round(percentage)}%. Please attend classes regularly to meet the minimum 75% requirement.`,
+          type: 'warning',
+          read: false,
+        });
+      }
+    }
+  }
 };
