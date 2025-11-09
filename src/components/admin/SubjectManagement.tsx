@@ -15,14 +15,18 @@ const SubjectManagement = () => {
   const [staff] = useState(getStaff());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
-  const [formData, setFormData] = useState({ name: "", code: "", courseId: "", staffId: "" });
+  const [formData, setFormData] = useState({ name: "", code: "", courseId: "", staffId: "unassigned" });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (editingSubject) {
       const updated = subjects.map(s => 
-        s.id === editingSubject.id ? { ...s, ...formData } : s
+        s.id === editingSubject.id ? { 
+          ...s, 
+          ...formData,
+          staffId: formData.staffId === "unassigned" ? undefined : formData.staffId
+        } : s
       );
       setSubjects(updated);
       saveToStorage('subjects', updated);
@@ -31,7 +35,7 @@ const SubjectManagement = () => {
       const newSubject: Subject = {
         id: Date.now().toString(),
         ...formData,
-        staffId: formData.staffId || undefined
+        staffId: formData.staffId === "unassigned" ? undefined : formData.staffId
       };
       const updated = [...subjects, newSubject];
       setSubjects(updated);
@@ -41,7 +45,7 @@ const SubjectManagement = () => {
     
     setIsDialogOpen(false);
     setEditingSubject(null);
-    setFormData({ name: "", code: "", courseId: "", staffId: "" });
+    setFormData({ name: "", code: "", courseId: "", staffId: "unassigned" });
   };
 
   const handleEdit = (subject: Subject) => {
@@ -50,7 +54,7 @@ const SubjectManagement = () => {
       name: subject.name, 
       code: subject.code, 
       courseId: subject.courseId,
-      staffId: subject.staffId || ""
+      staffId: subject.staffId || "unassigned"
     });
     setIsDialogOpen(true);
   };
@@ -64,7 +68,7 @@ const SubjectManagement = () => {
 
   const handleAddNew = () => {
     setEditingSubject(null);
-    setFormData({ name: "", code: "", courseId: "", staffId: "" });
+    setFormData({ name: "", code: "", courseId: "", staffId: "unassigned" });
     setIsDialogOpen(true);
   };
 
@@ -136,7 +140,7 @@ const SubjectManagement = () => {
                       <SelectValue placeholder="Select staff" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Unassigned</SelectItem>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
                       {staff.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
                           {s.name}
