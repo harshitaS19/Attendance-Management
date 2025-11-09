@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCurrentUser, logout, getStudents, getAttendance, getSubjects, checkAttendanceAndNotify, getNotifications, type Student as StudentType, type AttendanceRecord } from "@/lib/storage";
+import { getCurrentUser, logout, getStudents, getAttendance, getSubjects, type Student as StudentType, type AttendanceRecord } from "@/lib/storage";
 import { toast } from "sonner";
 import DashboardNav from "@/components/DashboardNav";
 import StudentAttendanceChart from "@/components/student/StudentAttendanceChart";
@@ -25,22 +25,7 @@ const Student = () => {
     const student = getStudents().find(s => s.id === user.profileId);
     if (student) {
       setStudentData(student);
-      const percentage = calculateAttendance(student);
-      
-      // Check attendance and create notification if needed
-      checkAttendanceAndNotify(student.id);
-      
-      // Show toast for unread notifications
-      const notifications = getNotifications(user.id).filter(n => !n.read);
-      if (notifications.length > 0) {
-        notifications.forEach(notification => {
-          if (notification.type === 'warning') {
-            toast.error(notification.title, {
-              description: notification.message,
-            });
-          }
-        });
-      }
+      calculateAttendance(student);
     }
   }, [navigate]);
 
@@ -50,14 +35,12 @@ const Student = () => {
     
     if (studentAttendance.length === 0) {
       setAttendancePercentage(0);
-      return 0;
+      return;
     }
 
     const presentCount = studentAttendance.filter(a => a.status === 'present').length;
     const percentage = (presentCount / studentAttendance.length) * 100;
-    const roundedPercentage = Math.round(percentage);
-    setAttendancePercentage(roundedPercentage);
-    return roundedPercentage;
+    setAttendancePercentage(Math.round(percentage));
   };
 
   const handleLogout = () => {
@@ -75,7 +58,6 @@ const Student = () => {
       <DashboardNav
         title="Student Dashboard"
         onLogout={handleLogout}
-        showNotifications={true}
       />
 
       <main className="container mx-auto px-4 py-8">

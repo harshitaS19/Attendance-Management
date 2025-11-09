@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getStudents, getAttendance, saveToStorage, checkAttendanceAndNotify, type Subject, type AttendanceRecord } from "@/lib/storage";
+import { getStudents, getAttendance, saveToStorage, type Subject, type AttendanceRecord } from "@/lib/storage";
 import { Check, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,12 +46,6 @@ const AttendanceMarking = ({ subjects, selectedSubject, onSubjectChange }: Atten
     );
 
     saveToStorage('attendance', [...filtered, ...newRecords]);
-    
-    // Check each student's attendance and create notifications if needed
-    students.forEach(student => {
-      checkAttendanceAndNotify(student.id);
-    });
-    
     toast.success("Attendance saved successfully");
     setAttendanceData({});
   };
