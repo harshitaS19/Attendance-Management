@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,45 +7,61 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getStudents, getCourses, getSubjects, saveToStorage, type Student } from "@/lib/storage";
-import { Plus, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { CoursesAPI, SubjectsAPI, StudentsAPI, type Student as ApiStudent } from "@/lib/api";
+import { Plus, Edit, Trash2 } from "lucide-react";
 
 const StudentManagement = () => {
-  const [students, setStudents] = useState<Student[]>(getStudents());
-  const [courses] = useState(getCourses());
-  const [subjects] = useState(getSubjects());
+  const qc = useQueryClient();
+  const { data: courses = [] } = useQuery({ queryKey: ['courses'], queryFn: CoursesAPI.list });
+  const { data: subjects = [] } = useQuery({ queryKey: ['subjects'], queryFn: SubjectsAPI.list });
+  const { data: students = [] } = useQuery({ queryKey: ['students'], queryFn: StudentsAPI.list });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [formData, setFormData] = useState({ 
+  const [editingStudent, setEditingStudent] = useState<ApiStudent | null>(null);
+  const [formData, setFormData] = useState<ApiStudent>({ 
     name: "", 
     rollNumber: "", 
     email: "", 
     courseId: "", 
-    subjects: [] as string[] 
+    subjects: [] 
   });
 
-  const availableSubjects = subjects.filter(s => s.courseId === formData.courseId);
+  const availableSubjects = subjects.filter((s: any) => s.courseId === formData.courseId);
+
+  const createMut = useMutation({
+    mutationFn: (s: ApiStudent) => StudentsAPI.create(s),
+    onSuccess: () => {
+      toast.success("Student added successfully");
+      qc.invalidateQueries({ queryKey: ['students'] });
+    },
+    onError: () => toast.error("Failed to add student")
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ApiStudent }) => StudentsAPI.update(id, data),
+    onSuccess: () => {
+      toast.success("Student updated successfully");
+      qc.invalidateQueries({ queryKey: ['students'] });
+    },
+    onError: () => toast.error("Failed to update student")
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => StudentsAPI.remove(id),
+    onSuccess: () => {
+      toast.success("Student deleted successfully");
+      qc.invalidateQueries({ queryKey: ['students'] });
+    },
+    onError: () => toast.error("Failed to delete student")
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (editingStudent) {
-      const updated = students.map(s => 
-        s.id === editingStudent.id ? { ...s, ...formData } : s
-      );
-      setStudents(updated);
-      saveToStorage('students', updated);
-      toast.success("Student updated successfully");
+
+    if (editingStudent?.id) {
+      updateMut.mutate({ id: editingStudent.id, data: formData });
     } else {
-      const newStudent: Student = {
-        id: Date.now().toString(),
-        ...formData
-      };
-      const updated = [...students, newStudent];
-      setStudents(updated);
-      saveToStorage('students', updated);
-      toast.success("Student added successfully");
+      createMut.mutate(formData);
     }
     
     setIsDialogOpen(false);
@@ -52,7 +69,7 @@ const StudentManagement = () => {
     setFormData({ name: "", rollNumber: "", email: "", courseId: "", subjects: [] });
   };
 
-  const handleEdit = (student: Student) => {
+  const handleEdit = (student: ApiStudent) => {
     setEditingStudent(student);
     setFormData({ 
       name: student.name, 
@@ -65,10 +82,7 @@ const StudentManagement = () => {
   };
 
   const handleDelete = (id: string) => {
-    const updated = students.filter(s => s.id !== id);
-    setStudents(updated);
-    saveToStorage('students', updated);
-    toast.success("Student deleted successfully");
+    deleteMut.mutate(id);
   };
 
   const handleAddNew = () => {
@@ -87,7 +101,7 @@ const StudentManagement = () => {
   };
 
   const getCourseName = (courseId: string) => {
-    return courses.find(c => c.id === courseId)?.name || "N/A";
+    return courses.find((c: any) => c.id === courseId)?.name || "N/A";
   };
 
   return (
@@ -113,7 +127,7 @@ const StudentManagement = () => {
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g., Harshi"
+                    placeholder="e.g., Blake"
                     required
                   />
                 </div>
@@ -134,7 +148,7 @@ const StudentManagement = () => {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="e.g., student@example.com"
+                    placeholder="e.g., Blake@example.com"
                     required
                   />
                 </div>

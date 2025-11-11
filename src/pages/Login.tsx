@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { login } from "@/lib/storage";
+import { setCurrentUser } from "@/lib/storage";
 import { GraduationCap } from "lucide-react";
+import { AuthAPI } from "@/lib/api";
 
 const Login = () => {
   const [username, setUsername] = useState("");
@@ -14,36 +15,31 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
-    setTimeout(() => {
-      const user = login(username, password);
-      
-      if (user) {
-        toast.success(`Welcome back, ${username}!`);
-        
-        // Navigate based on role
-        switch (user.role) {
-          case 'admin':
-            navigate('/admin');
-            break;
-          case 'staff':
-            navigate('/staff');
-            break;
-          case 'student':
-            navigate('/student');
-            break;
-          default:
-            navigate('/');
-        }
-      } else {
-        toast.error("Invalid credentials. Please try again.");
+    try {
+      const { user } = await AuthAPI.login(username, password);
+      setCurrentUser(user);
+      toast.success(`Welcome back, ${username}!`);
+      switch (user.role) {
+        case 'admin':
+          navigate('/admin');
+          break;
+        case 'staff':
+          navigate('/staff');
+          break;
+        case 'student':
+          navigate('/student');
+          break;
+        default:
+          navigate('/');
       }
-      
+    } catch {
+      toast.error("Invalid credentials. Please try again.");
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   return (
